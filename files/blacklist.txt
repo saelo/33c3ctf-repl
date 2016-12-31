@@ -1,0 +1,7 @@
+fun:__libc_start_main
+fun:cgt_init
+fun:getcpu_init
+
+src:ldso/*
+src:crt/*
+src:src/ldso/*

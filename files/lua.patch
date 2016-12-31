@@ -1,0 +1,139 @@
+diff --git a/Makefile b/Makefile
+index c795dd7..0691816 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,7 +4,7 @@
+ # == CHANGE THE SETTINGS BELOW TO SUIT YOUR ENVIRONMENT =======================
+ 
+ # Your platform. See PLATS for possible values.
+-PLAT= none
++PLAT= generic
+ 
+ # Where to install. The installation starts in the src and doc directories,
+ # so take care if INSTALL_TOP is not an absolute path. See the local target.
+diff --git a/src/Makefile b/src/Makefile
+index d71c75c..7368f7b 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -6,21 +6,21 @@
+ # Your platform. See PLATS for possible values.
+ PLAT= none
+ 
+-CC= gcc -std=gnu99
+-CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_2 $(SYSCFLAGS) $(MYCFLAGS)
++CC= musl-clang -std=gnu99
++CFLAGS= -O2 -Wall -Wextra $(SYSCFLAGS) $(MYCFLAGS)
+ LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
+ LIBS= -lm $(SYSLIBS) $(MYLIBS)
+ 
+-AR= ar rcu
+-RANLIB= ranlib
++AR= llvm-ar-3.9 rcu
++RANLIB= llvm-ranlib-3.9
+ RM= rm -f
+ 
+ SYSCFLAGS=
+ SYSLDFLAGS=
+ SYSLIBS=
+ 
+-MYCFLAGS=
+-MYLDFLAGS=
++MYCFLAGS= -flto -fvisibility=hidden -fsanitize=cfi -fstack-protector -fPIE -DLUA_MAXINPUT=0x100000
++MYLDFLAGS= -flto -pie -Wl,-z,relro -Wl,-z,now
+ MYLIBS=
+ MYOBJS=
+ 
+diff --git a/src/lbaselib.c b/src/lbaselib.c
+index d481c4e..5f925a4 100644
+--- a/src/lbaselib.c
++++ b/src/lbaselib.c
+@@ -284,6 +284,7 @@ static int load_aux (lua_State *L, int status, int envidx) {
+ }
+ 
+ 
++#if 0   /* avoid compiler warnings about unused functions */
+ static int luaB_loadfile (lua_State *L) {
+   const char *fname = luaL_optstring(L, 1, NULL);
+   const char *mode = luaL_optstring(L, 2, NULL);
+@@ -291,6 +292,7 @@ static int luaB_loadfile (lua_State *L) {
+   int status = luaL_loadfilex(L, fname, mode);
+   return load_aux(L, status, env);
+ }
++#endif
+ 
+ 
+ /*
+@@ -353,6 +355,7 @@ static int luaB_load (lua_State *L) {
+ /* }====================================================== */
+ 
+ 
++#if 0   /* avoid compiler warnings about unused functions */
+ static int dofilecont (lua_State *L, int d1, lua_KContext d2) {
+   (void)d1;  (void)d2;  /* only to match 'lua_Kfunction' prototype */
+   return lua_gettop(L) - 1;
+@@ -367,6 +370,7 @@ static int luaB_dofile (lua_State *L) {
+   lua_callk(L, 0, LUA_MULTRET, 0, dofilecont);
+   return dofilecont(L, 0, 0);
+ }
++#endif
+ 
+ 
+ static int luaB_assert (lua_State *L) {
+@@ -453,11 +457,11 @@ static int luaB_tostring (lua_State *L) {
+ static const luaL_Reg base_funcs[] = {
+   {"assert", luaB_assert},
+   {"collectgarbage", luaB_collectgarbage},
+-  {"dofile", luaB_dofile},
++  //{"dofile", luaB_dofile},
+   {"error", luaB_error},
+   {"getmetatable", luaB_getmetatable},
+   {"ipairs", luaB_ipairs},
+-  {"loadfile", luaB_loadfile},
++  //{"loadfile", luaB_loadfile},
+   {"load", luaB_load},
+ #if defined(LUA_COMPAT_LOADSTRING)
+   {"loadstring", luaB_load},
+diff --git a/src/linit.c b/src/linit.c
+index 8ce94cc..a3373a0 100644
+--- a/src/linit.c
++++ b/src/linit.c
+@@ -41,15 +41,15 @@
+ */
+ static const luaL_Reg loadedlibs[] = {
+   {"_G", luaopen_base},
+-  {LUA_LOADLIBNAME, luaopen_package},
++  //{LUA_LOADLIBNAME, luaopen_package},
+   {LUA_COLIBNAME, luaopen_coroutine},
+   {LUA_TABLIBNAME, luaopen_table},
+-  {LUA_IOLIBNAME, luaopen_io},
+-  {LUA_OSLIBNAME, luaopen_os},
++  //{LUA_IOLIBNAME, luaopen_io},
++  //{LUA_OSLIBNAME, luaopen_os},
+   {LUA_STRLIBNAME, luaopen_string},
+   {LUA_MATHLIBNAME, luaopen_math},
+   {LUA_UTF8LIBNAME, luaopen_utf8},
+-  {LUA_DBLIBNAME, luaopen_debug},
++  //{LUA_DBLIBNAME, luaopen_debug},
+ #if defined(LUA_COMPAT_BITLIB)
+   {LUA_BITLIBNAME, luaopen_bit32},
+ #endif
+diff --git a/src/lua.c b/src/lua.c
+index 545d23d..de2d82c 100644
+--- a/src/lua.c
++++ b/src/lua.c
+@@ -13,6 +13,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <unistd.h>
+ 
+ #include "lua.h"
+ 
+@@ -591,6 +592,7 @@ static int pmain (lua_State *L) {
+ 
+ 
+ int main (int argc, char **argv) {
++  alarm(60);
+   int status, result;
+   lua_State *L = luaL_newstate();  /* create state */
+   if (L == NULL) {

@@ -1,0 +1,38 @@
+diff --git a/Makefile b/Makefile
+index 8246b78..c50be00 100644
+--- a/Makefile
++++ b/Makefile
+@@ -60,6 +60,9 @@ GENERIC_INCLUDES = $(wildcard $(srcdir)/arch/generic/bits/*.h)
+ INCLUDES = $(wildcard $(srcdir)/include/*.h $(srcdir)/include/*/*.h)
+ ALL_INCLUDES = $(sort $(INCLUDES:$(srcdir)/%=%) $(GENH:obj/%=%) $(ARCH_INCLUDES:$(srcdir)/arch/$(ARCH)/%=include/%) $(GENERIC_INCLUDES:$(srcdir)/arch/generic/%=include/%))
+
++# These contain inline assembly which currently breaks with LTO...
++obj/ldso/dlstart.lo obj/ldso/dynlink.lo: CFLAGS += -fno-lto -fno-sanitize=cfi -fvisibility=default
++
+ EMPTY_LIB_NAMES = m rt pthread crypt util xnet resolv dl
+ EMPTY_LIBS = $(EMPTY_LIB_NAMES:%=lib/lib%.a)
+ CRT_LIBS = $(addprefix lib/,$(notdir $(CRT_OBJS)))
+@@ -111,7 +114,9 @@ obj/crt/crt1.o obj/crt/scrt1.o obj/crt/rcrt1.o obj/ldso/dlstart.lo: $(srcdir)/ar
+
+ obj/crt/rcrt1.o: $(srcdir)/ldso/dlstart.c
+
+-obj/crt/Scrt1.o obj/crt/rcrt1.o: CFLAGS_ALL += -fPIC
++# No LTO for these as well
++obj/crt/Scrt1.o obj/crt/rcrt1.o: CFLAGS_ALL += -fPIC -fno-lto -fno-sanitize=cfi -fvisibility=default
++obj/crt/crt1.o: CFLAGS_ALL += -fno-lto -fno-sanitize=cfi -fvisibility=default
+
+ obj/crt/$(ARCH)/crti.o: $(srcdir)/crt/$(ARCH)/crti.s
+
+diff --git a/configure b/configure
+index 81e90f7..957868c 100755
+--- a/configure
++++ b/configure
+@@ -560,7 +560,7 @@ fi
+ # Reduce space lost to padding for alignment purposes by sorting data
+ # objects according to their alignment reqirements. This approximates
+ # optimal packing.
+-tryldflag LDFLAGS_AUTO -Wl,--sort-section,alignment
++#tryldflag LDFLAGS_AUTO -Wl,--sort-section,alignment
+ tryldflag LDFLAGS_AUTO -Wl,--sort-common
+
+ # When linking shared library, drop dummy weak definitions that were
